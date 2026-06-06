@@ -64,4 +64,160 @@
             border-radius: 10px;
             cursor: pointer;
             border-left: 4px solid transparent;
-            transition: all 0.2
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .gang-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(5px);
+        }
+
+        .color-dot {
+            width: 14px; height: 14px; border-radius: 50%; 
+            margin-right: 12px; box-shadow: 0 0 10px currentColor;
+        }
+
+        /* Mapa */
+        #map { flex: 1; height: 100%; background-color: #14161d; z-index: 1; }
+
+        /* Stylizacja dymków (popups) Leaflet */
+        .leaflet-popup-content-wrapper { 
+            background: rgba(20, 24, 33, 0.85); backdrop-filter: blur(10px); 
+            color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; 
+        }
+        .leaflet-popup-tip { background: rgba(20, 24, 33, 0.85); }
+        .leaflet-popup-content h3 { margin: 0 0 8px 0; color: #5aa1e2; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;}
+        .leaflet-popup-content p { margin: 0; font-size: 13px; color: #b0c4de;}
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <h1>Chicago Sets</h1>
+            <p>Lista terytoriów</p>
+        </div>
+        <div class="gang-list" id="gang-list">
+            </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        // 1. Inicjalizacja Mapy
+        var map = L.map('map', {
+            minZoom: 2,
+            maxZoom: 4,
+            zoomControl: true,
+            attributionControl: false // Wyłączony napis Leaflet na dole
+        }).setView([0, 0], 2);
+
+        // 2. Wgrywanie Twoich kafelków
+        var tileUrl = 'https://wariacikpompeusz.github.io/wariatmapa/{z}/{x}/{y}.png';
+        L.tileLayer(tileUrl, { maxZoom: 4, minZoom: 2, noWrap: true }).addTo(map);
+
+        // ==========================================
+        // 3. BAZA DANYCH GANGÓW (TUTAJ EDYTUJESZ)
+        // ==========================================
+        // Aby dodać gang, skopiuj jeden cały blok z nawiasami { ... }
+        // Kordy to rogi strefy. Najpierw podajesz Lat (Y), potem Lng (X).
+        
+        var gangs = [
+            {
+                name: "Przykładowy Set (Czerwoni)",
+                color: "#ff3333",
+                description: "Tereny kontrolowane przez czerwonych. Wpisz tu co chcesz.",
+                coords: [
+                    [10.50, 15.20],
+                    [10.50, 30.10],
+                    [25.80, 30.10],
+                    [25.80, 15.20]
+                ]
+            },
+            {
+                name: "Przykładowy Set 2 (Niebiescy)",
+                color: "#3388ff",
+                description: "Tereny kontrolowane przez niebieskich.",
+                coords: [
+                    [-20.00, -40.00],
+                    [-20.00, -10.00],
+                    [-45.00, -10.00],
+                    [-45.00, -40.00]
+                ]
+            },
+            {
+                name: "Teren Neutralny (Żółci)",
+                color: "#ffcc00",
+                description: "Strefa handlowa / neutralna.",
+                coords: [
+                    [35.00, -30.00],
+                    [35.00, -10.00],
+                    [50.00, -20.00] // Możesz robić trójkąty i inne kształty, nie tylko kwadraty!
+                ]
+            }
+        ];
+
+        // ==========================================
+        // 4. GENEROWANIE LISTY I RYSOWANIE NA MAPIE
+        // ==========================================
+        var listContainer = document.getElementById('gang-list');
+
+        gangs.forEach(function(gang) {
+            // Rysowanie wielokąta (strefy) na mapie
+            var polygon = L.polygon(gang.coords, {
+                color: gang.color,          // Kolor obramowania
+                fillColor: gang.color,      // Kolor wypełnienia
+                fillOpacity: 0.35,          // Przezroczystość wypełnienia (0.0 do 1.0)
+                weight: 2                   // Grubość obramowania
+            }).addTo(map);
+
+            // Dodawanie dymku informacyjnego
+            polygon.bindPopup("<h3>" + gang.name + "</h3><p>" + gang.description + "</p>");
+
+            // Tworzenie elementu na liście w sidebarze
+            var listItem = document.createElement('div');
+            listItem.className = 'gang-item';
+            listItem.style.borderLeftColor = gang.color;
+            
+            var colorDot = document.createElement('div');
+            colorDot.className = 'color-dot';
+            colorDot.style.backgroundColor = gang.color;
+            colorDot.style.color = gang.color; // Do shadow
+            
+            var textNode = document.createTextNode(gang.name);
+            
+            listItem.appendChild(colorDot);
+            listItem.appendChild(textNode);
+            
+            // Co ma się stać po kliknięciu w nazwę gangu na liście:
+            listItem.onclick = function() {
+                // Kamera leci do strefy i otwiera dymek
+                map.flyToBounds(polygon.getBounds(), { duration: 0.5 });
+                setTimeout(function() { polygon.openPopup(); }, 500);
+            };
+
+            listContainer.appendChild(listItem);
+        });
+
+        // ==========================================
+        // 5. SYSTEM POMOCY W ZDOBYWANIU KORDÓW
+        // ==========================================
+        // Kliknij Prawym Przyciskiem Myszy na mapę, aby pobrać koordynaty do wpisania wyżej.
+        map.on('contextmenu', function(e) {
+            var lat = e.latlng.lat.toFixed(2);
+            var lng = e.latlng.lng.toFixed(2);
+            var kordyGotowe = "[" + lat + ", " + lng + "],";
+            
+            L.popup()
+                .setLatLng(e.latlng)
+                .setContent("<b>Skopiuj to do tablicy coords:</b><br><br><code style='background: #000; padding: 5px; border-radius: 4px; color: #0f0; user-select: all;'>" + kordyGotowe + "</code>")
+                .openOn(map);
+        });
+
+    </script>
+</body>
+</html>
